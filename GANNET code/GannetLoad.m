@@ -66,7 +66,7 @@ else
     MRS_struct.Reference_compound='Cr';
 end
 MRS_struct.LB=LB;
-MRS_struct.versionload = '111212';
+MRS_struct.versionload = '111214';
 FreqPhaseAlign=1; %110825
 
 
@@ -150,6 +150,7 @@ for ii=1:numpfiles
         elseif(strcmpi(MRS_struct.vendor,'Philips'))
             %Need to set Water_Positive based on water signal
             Water_Positive=1;
+            MRS_struct.ii=ii;
             if strcmpi(MRS_struct.Reference_compound,'H2O')
                 MRS_struct = PhilipsRead(MRS_struct, temppfile{ii}, waterfile{ii});
                 WaterData = MRS_struct.data_water;
@@ -165,11 +166,12 @@ for ii=1:numpfiles
             LarmorFreq = 127.8;
          elseif(strcmpi(MRS_struct.vendor,'Philips_data'))
             Water_Positive=0;
+            MRS_struct.ii=ii;
             temppfile{ii};
             MRS_struct = PhilipsRead_data(MRS_struct, temppfile{ii});
             da_xres = MRS_struct.npoints;
-            da_yres = MRS_struct.nrows*MRS_struct.Navg;
-            totalframes = MRS_struct.nrows*MRS_struct.Navg;
+            da_yres = MRS_struct.nrows*MRS_struct.Navg(ii);
+            totalframes = MRS_struct.nrows*MRS_struct.Navg(ii);
             FullData = MRS_struct.data;
             LarmorFreq = 127.8;       
 
@@ -415,8 +417,8 @@ for ii=1:numpfiles
         %     OddFramesFTrealign=AllFramesFT(:,1:2:end);
         %     EvenFramesFTrealign=AllFramesFT(:,2:2:end);
         if(strcmpi(MRS_struct.vendor,'Philips_data'))
-            AllFramesFTrealign=reshape(AllFramesFTrealign,[size(AllFramesFTrealign,1) MRS_struct.Navg MRS_struct.nrows]);
-            AllFramesFT=reshape(AllFramesFT,[size(AllFramesFT,1) MRS_struct.Navg MRS_struct.nrows]);
+            AllFramesFTrealign=reshape(AllFramesFTrealign,[size(AllFramesFTrealign,1) MRS_struct.Navg(ii) MRS_struct.nrows]);
+            AllFramesFT=reshape(AllFramesFT,[size(AllFramesFT,1) MRS_struct.Navg(ii) MRS_struct.nrows]);
             OddFramesFTrealign=AllFramesFTrealign(:,:,1:2:end);
             EvenFramesFTrealign=AllFramesFTrealign(:,:,2:2:end);
             OddFramesFT=AllFramesFT(:,:,1:2:end);
@@ -643,9 +645,11 @@ for ii=1:numpfiles
                     AllFramesFTrealign(:,(2*jj-1)) = OddFramesFTrealign(1:end, jj);
                 end
                 if(strcmpi(MRS_struct.vendor,'Philips_data'))
-                    MRS_struct.Navg = MRS_struct.Navg*MRS_struct.nrows - numreject;
+                    MRS_struct.Navg(ii) = MRS_struct.Navg(ii)*MRS_struct.nrows - numreject*MRS_struct.nrows; %need to check up on both Philips RE 121214
+                elseif(strcmpi(MRS_struct.vendor,'Philips_sdat'))
+                    MRS_struct.Navg(ii) = MRS_struct.Navg(ii)*MRS_struct.nrows - numreject*MRS_struct.nrows; %need to check up on both Philips RE 121214
                 else
-                    MRS_struct.Navg = MRS_struct.Navg - numreject;
+                    MRS_struct.Navg(ii) = MRS_struct.Navg(ii) - numreject;
                 end
             else
                 % no realignment
@@ -752,7 +756,7 @@ for ii=1:numpfiles
         tmp = [ 'filename    : ' MRS_struct.pfile{ii} ];
         tmp = regexprep(tmp, '_','-');
         text(0,0.9, tmp, 'FontName', 'Courier');
-        tmp = [ 'Navg        : ' num2str(MRS_struct.Navg) ];
+        tmp = [ 'Navg        : ' num2str(MRS_struct.Navg(ii)) ];
         text(0,0.8, tmp, 'FontName', 'Courier');
         tmp = sprintf('FWHM (Hz)   : %.2f', MRS_struct.fwhmHz(ii) );
         text(0,0.7, tmp, 'FontName', 'Courier');
@@ -768,8 +772,8 @@ for ii=1:numpfiles
         text(0,0.3, tmp, 'FontName', 'Courier');
         
         script_path=which('GannetLoad');
-        Gannet_circle=[script_path(1:(end-24)) 'GANNET_circle.png'];
-        Gannet_circle_white=[script_path(1:(end-24)) 'GANNET_circle_white.jpg'];
+        Gannet_circle=[script_path(1:(end-23)) 'GANNET_circle.png'];
+        Gannet_circle_white=[script_path(1:(end-23)) 'GANNET_circle_white.jpg'];
         A=imread(Gannet_circle);
         A2=imread(Gannet_circle_white);
         hax=axes('Position',[0.85, 0.05, 0.15, 0.15]);
@@ -876,8 +880,8 @@ for ii=1:numpfiles
         text(0,0.3, tmp, 'FontName', 'Courier');
         
         script_path=which('GannetLoad');
-        Gannet_circle=[script_path(1:(end-24)) 'GANNET_circle.png'];
-        Gannet_circle_white=[script_path(1:(end-24)) 'GANNET_circle_white.jpg'];
+        Gannet_circle=[script_path(1:(end-12)) 'GANNET_circle.png'];
+        Gannet_circle_white=[script_path(1:(end-12)) 'GANNET_circle_white.jpg'];
         A=imread(Gannet_circle);
         A2=imread(Gannet_circle_white);
         hax=axes('Position',[0.85, 0.05, 0.15, 0.15]);

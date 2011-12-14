@@ -12,7 +12,7 @@ function [ MRS_struct ] = PhilipsRead_data(MRS_struct, fname, fname_water )
    
    sparidx=find(ismember(sparheader, 'number_of_signal_averages')==1);
    %MRS_struct.Navg = MRS_struct.nrows * str2num(sparheader{sparidx+2});
-   MRS_struct.Navg = str2num(sparheader{sparidx+2}); %Trial SDAT might be average not sum.
+   MRS_struct.Navg(MRS_struct.ii) = str2num(sparheader{sparidx+2}); %Trial SDAT might be average not sum.
    %sparidx=find(ismember(sparheader, 'repetition_time')==1);
    %MRS_struct.TR = MRS_struct.nrows * str2num(sparheader{sparidx+2});
    %TR not contained in .data - hard code for now.

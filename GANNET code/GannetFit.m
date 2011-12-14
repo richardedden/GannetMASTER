@@ -31,9 +31,8 @@ function [MRS_struct] = GannetFit(MRS_struct)
 % water spectr, we need to add in referenceing to Cr... through
 % MRS_struct.Reference_compound
 
-% To Do:
-% Water fit sometimes fails - run a Lorentzian fit to water FIRST, then
-%   initialise the Voigt fit with the Lorentzian params (gaussian comp zeroed)
+%111214 integrating CJE's changes on water fitting (pre-init and revert to
+%linear bseline). Also investigating Navg(ii)
 
 
 
@@ -48,8 +47,8 @@ freq=MRS_struct.freq;
 if strcmp(MRS_struct.Reference_compound,'H2O')
     WaterData=MRS_struct.waterspec;
 end
-MRS_struct.versionfit = '111212';
-
+MRS_struct.versionfit = '111214';
+disp(['GABA Fit Version is ' MRS_struct.versionfit ]);
 fitwater=1;
 numscans=size(GABAData);
 numscans=numscans(1);
@@ -239,7 +238,7 @@ for ii=1:numscans
         %fit, then adjust phase of WaterData accordingly
         if(strcmpi(MRS_struct.vendor,'Philips'))
             %Run preliminary Fit of data
-            LGModelInit = [maxinWater 20 4.7  waterbase -50 ]; %works
+            LGModelInit = [maxinWater 20 4.7 0.0 waterbase -50 ]; %works
 
             lblg = [0.01*maxinWater 1 4.6 0 0 -50 ];
             ublg = [40*maxinWater 100 4.8 0.000001 1 0 ];
@@ -272,7 +271,15 @@ for ii=1:numscans
 
         % 110624 - linear baseline term removed - causes nlinfit to fail
         % sometimes
-        LGModelInit = [maxinWater 20 4.7  waterbase -50 ]; %works
+          %LGModelInit = [maxinWater 20 4.7  waterbase -50 ] %works
+  % 111209 need to change order to get linear term back in 
+  % x(1) = Amplitude of (scaled) Lorentzian
+% x(2) = 1 / hwhm of Lorentzian (hwhm = half width at half max)
+% x(3) = centre freq of Lorentzian
+% x(4) = linear baseline amplitude
+% x(5) = constant baseline amplitude
+% x(6) =  -1 / 2 * sigma^2  of gaussian
+    LGModelInit = [maxinWater 20 4.7 0 waterbase -50 ]; %works
 
         lblg = [0.01*maxinWater 1 4.6 0 0 -50 ];
         ublg = [40*maxinWater 100 4.8 0.000001 1 0 ];
@@ -283,7 +290,7 @@ for ii=1:numscans
         waterhigh=find(min(z)==z);
         freqbounds=waterlow:waterhigh;
         % Do the water fit (Lorentz-Gauss)
-        if(waterfit_method == FIT_LSQCURV)
+        % 111209 Always do the LSQCURV fitting - to initialise
 
             %Lorentz-Gauss Starters
             options = optimset('lsqcurvefit');
@@ -300,38 +307,40 @@ for ii=1:numscans
                 LGModelInit, freq(freqbounds),real(WaterData(ii,freqbounds)),...
                 lblg,ublg,options);
             LGModelInit;
-            LGModelParam(ii,:)
-
-            residw = -residw;
-
-        else %it's nlinfit
-            % nlinfit options
-            nlinopts = statset('nlinfit');
-            nlinopts = statset(nlinopts, 'MaxIter', 1e5);
-
-            %%%Additional plot added in by RE to test Philips water fit
-
-            h1=subplot(2, 2, 3);
-
-
-            plot(freq(freqbounds),real(LorentzGaussModel(LGModelInit,freq(freqbounds))), 'r', ...
-                freq(freqbounds),real(WaterData(ii,freqbounds)),'b');
-            set(gca,'XDir','reverse');
-            %set(gca,'YTick',[], 'Xgrid', 'on');
-            xlim([4.2 5.2]);
-
-
-
-
-
-            [LGModelParam(ii,:),residw] = nlinfit(freq(freqbounds), real(WaterData(ii,freqbounds)),...
-                @(xdummy,ydummy)	LorentzGaussModel(xdummy,ydummy),...
-                LGModelInit, nlinopts);
-            ii;
-            LGModelInit;
             LGModelParam(ii,:);
+
             residw = -residw;
-        end
+            if(waterfit_method == FIT_NLINFIT)
+                LGModelInit = LGModelParam; %111209 initialise from LSQCURV
+        
+                % nlinfit options
+                nlinopts = statset('nlinfit');
+                nlinopts = statset(nlinopts, 'MaxIter', 1e5);
+
+                %%%Additional plot added in by RE to test Philips water fit
+                %commented out now water fit is fixed.
+
+                h1=subplot(2, 2, 3);
+
+
+                %plot(freq(freqbounds),real(LorentzGaussModel(LGModelInit,freq(freqbounds))), 'r', ...
+                %    freq(freqbounds),real(WaterData(ii,freqbounds)),'b');
+                %set(gca,'XDir','reverse');
+                %set(gca,'YTick',[], 'Xgrid', 'on');
+                %xlim([4.2 5.2]);
+
+
+
+
+
+                [LGModelParam(ii,:),residw] = nlinfit(freq(freqbounds), real(WaterData(ii,freqbounds)),...
+                    @(xdummy,ydummy)	LorentzGaussModel(xdummy,ydummy),...
+                    LGModelInit, nlinopts);
+                ii;
+                LGModelInit;
+                LGModelParam(ii,:);
+                residw = -residw;
+            end
 
         MRS_struct.WaterModelParam(ii,:) = LGModelParam(ii,:);
 
@@ -362,9 +371,11 @@ for ii=1:numscans
         %    - BaselineModel(LGModelParam(ii,3:5),freq(freqbounds)),2);
         %This changed when CJE changed the LG model - Baseline no longer
         %appropriate....
+        %WaterArea(ii)=sum(real(LorentzGaussModel(LGModelParam(ii,:),freq(freqbounds))) ...
+        %    - LGModelParam(ii,4),2);
+        %CJE fixes water baseline code - baseline model as before...
         WaterArea(ii)=sum(real(LorentzGaussModel(LGModelParam(ii,:),freq(freqbounds))) ...
-            - LGModelParam(ii,4),2);
-
+      - BaselineModel(LGModelParam(ii,3:5),freq(freqbounds)),2);
 
         % convert watersum to integral
         MRS_struct.waterArea(ii)=WaterArea(ii) * (freq(1) - freq(2));
@@ -514,7 +525,7 @@ for ii=1:numscans
     tmp =       [ 'pfile        : ' MRS_struct.pfile{ii} ];
     tmp = regexprep(tmp, '_','-');
     text(0,0.9, tmp, 'FontName', 'Courier');
-    tmp =       [ 'Navg         : ' num2str(MRS_struct.Navg) ];
+    tmp =       [ 'Navg         : ' num2str(MRS_struct.Navg(ii)) ];
     text(0,0.8, tmp, 'FontName', 'Courier');
     tmp = sprintf('GABA+ FWHM   : %.2f Hz', MRS_struct.GABAFWHM(ii) );
     text(0,0.7, tmp, 'FontName', 'Courier');
@@ -575,8 +586,8 @@ for ii=1:numscans
     subplot(2,2,4,'replace')
     axis off;
     script_path=which('GannetLoad');
-    Gannet_circle=[script_path(1:(end-24)) 'GANNET_circle.png'];
-    Gannet_circle_white=[script_path(1:(end-24)) 'GANNET_circle_white.jpg'];
+    Gannet_circle=[script_path(1:(end-12)) 'GANNET_circle.png'];
+    Gannet_circle_white=[script_path(1:(end-12)) 'GANNET_circle_white.jpg'];
     A=imread(Gannet_circle);
     A_2=imread(Gannet_circle_white);
     hax=axes('Position',[0.85, 0.05, 0.15, 0.15]);
@@ -697,12 +708,13 @@ function F = LorentzGaussModel(x,freq)
 %F =((ones(size(freq))./(x(2)^2*(freq-x(3)).*(freq-x(3))+1)*x(1))*cos(x(7))+(ones(size(freq))./(x(2)^2*(freq-x(3)).*(freq-x(3))+1)*x(2).*(freq-x(3)))*sin(x(7))).*(exp(x(6)*(freq-x(3)).*(freq-x(3))))+x(4)*(freq-x(3))+x(5);
 % remove phasing
 F = (x(1)*ones(size(freq))./(x(2)^2*(freq-x(3)).*(freq-x(3))+1))  ...
-    .* (exp(x(5)*(freq-x(3)).*(freq-x(3)))) ... % gaussian
-    +x(4); % constant baseline
+    .* (exp(x(6)*(freq-x(3)).*(freq-x(3)))) ... % gaussian
+    + x(4)*(freq-x(3)) ... % linear baseline
+    +x(5); % constant baseline
 
 % 110624 removed:
 % + x(4)*(freq-x(3)) ... % linear baseline
-
+% 111214 replaced:
 
 %%%%%%%%%%%%%%% BASELINE %%%%%%%%%%%%%%%%%%%%%%%
 function F = BaselineModel(x,freq)
@@ -740,7 +752,7 @@ T2_factor = exp(-TE./T2_Water) ./ exp(-TE./T2_GABA);
 
 MRS_struct.gabaiu(ii) = (MRS_struct.gabaArea(ii)  ./  MRS_struct.waterArea(ii))  ...
     * PureWaterConc*WaterVisibility*T1_factor*T2_factor*(N_H_Water./N_H_GABA) ...
-    * MM * (MRS_struct.Nwateravg ./ MRS_struct.Navg) ./ EditingEfficiency;
+    * MM * (MRS_struct.Nwateravg ./ MRS_struct.Navg(ii)) ./ EditingEfficiency;
 
 %%%%%%%%%%%%%%% INSET FIGURE %%%%%%%%%%%%%%%%%%%%%%%
 function [h_main, h_inset]=inset(main_handle, inset_handle,inset_size)
