@@ -825,8 +825,9 @@ for ii=1:numpfiles
         hax=axes('Position',[0.85, 0.05, 0.15, 0.15]);
         %set(gca,'Units','normalized');set(gca,'Position',[0.05 0.05 1.85 0.15]);
         image(A2);axis off; axis square;
-        set(gcf,'PaperSize',[8.5 6.5]);
+        % fix pdf output, where default is cm
         set(gcf, 'PaperUnits', 'inches');
+        set(gcf,'PaperSize',[8.5 6.5]);
         set(gcf,'PaperPosition',[.25 .25 8 6]);
         if(strcmpi(MRS_struct.vendor,'Philips_data'))
             pdfname=[ 'MRSload_output/' fullpath '.pdf' ];
