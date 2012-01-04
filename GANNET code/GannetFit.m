@@ -311,7 +311,7 @@ for ii=1:numscans
 
             residw = -residw;
             if(waterfit_method == FIT_NLINFIT)
-                LGModelInit = LGModelParam; %111209 initialise from LSQCURV
+                LGModelInit = LGModelParam(ii,:); % CJE 4 Jan 12
         
                 % nlinfit options
                 nlinopts = statset('nlinfit');

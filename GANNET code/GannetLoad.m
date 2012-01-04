@@ -772,8 +772,9 @@ for ii=1:numpfiles
         text(0,0.3, tmp, 'FontName', 'Courier');
         
         script_path=which('GannetLoad');
-        Gannet_circle=[script_path(1:(end-23)) 'GANNET_circle.png'];
-        Gannet_circle_white=[script_path(1:(end-23)) 'GANNET_circle_white.jpg'];
+        % CJE update for GE
+        Gannet_circle=[script_path(1:(end-12)) 'GANNET_circle.png'];
+        Gannet_circle_white=[script_path(1:(end-12)) 'GANNET_circle_white.jpg'];
         A=imread(Gannet_circle);
         A2=imread(Gannet_circle_white);
         hax=axes('Position',[0.85, 0.05, 0.15, 0.15]);
