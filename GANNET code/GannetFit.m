@@ -532,7 +532,7 @@ for ii=1:numscans
     tmp = sprintf('GABA+ Area   : %.4f', MRS_struct.gabaArea(ii) );
     text(0,0.6, tmp, 'FontName', 'Courier');
     if strcmp(MRS_struct.Reference_compound,'H2O')
-        tmp = sprintf('H2O/Cr Area   :%.3f/%.3f ', MRS_struct.waterArea(ii),MRS_struct.GABAIU_Error_cr(ii) );
+        tmp = sprintf('H2O/Cr Area   :%.3f/%.3f ', MRS_struct.waterArea(ii),MRS_struct.CrArea(ii) );
         text(0,0.5, tmp, 'FontName', 'Courier');
         %tmp = sprintf('Cr Area      : %.4f', MRS_struct.CrArea(ii) );
         %text(0,0.4, tmp, 'FontName', 'Courier');
