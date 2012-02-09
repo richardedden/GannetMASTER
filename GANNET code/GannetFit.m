@@ -430,8 +430,10 @@ for ii=1:numscans
 % CJE 120131
         %MRS_struct.gabaiuCr(ii)=MRS_struct.gabaArea(ii)./MRS_struct.CrArea(ii)/2.0; %Factor of 2.0 account for CR coming from OFF not all data, and sum not average...
         % effective editing efficiency of both Cr and GABA is 0.5, 
-        % Cr 3.0 has 3 spins, GABA 3.0 has 2.
-        MRS_struct.gabaiuCr(ii)= MRS_struct.gabaArea(ii)./MRS_struct.CrArea(ii) * (3/2); 
+        % Cr 3.0 has 3 spins, GABA 3.0 has 2.  Cr is from SUM, so
+        % need factor (1/2)...
+        MRS_struct.gabaiuCr(ii)= MRS_struct.gabaArea(ii)./ ...
+	    MRS_struct.CrArea(ii) * (3/2) * (1/2); 
             
         %alter resid Cr for plotting.
         residCr = residCr + Crmin - resmaxCr;
