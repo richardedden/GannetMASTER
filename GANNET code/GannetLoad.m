@@ -615,6 +615,19 @@ for ii=1:numpfiles
                 %	 frequpper = repmat(frequpper, [1 totalframes]);
                 %	 freqlower = repmat(freqlower, [1 totalframes]);
 
+                % CJE branch on 120126, merge with master 120209
+                % Add condition to discard points after jump in
+                % water freq > 0.01ppm
+                waterreject = [ 0 (abs(diff(MRS_struct.waterfreq(ii,:)))>0.01) ]
+                %waterreject checks ALL frames
+                waterreject = reshape(waterreject, [2 numel(waterreject)/2])
+                waterreject = max(waterreject);
+                
+                rejectframes = rejectframes + waterreject'
+                
+                %prevent double counting
+                rejectframes = (rejectframes>0)
+
                 lastreject = -1;
                 numreject=0;
                 %    for jj=1:totalframes
@@ -720,17 +733,9 @@ for ii=1:numpfiles
                 % 110825 - don't worry about this, for the moment
                 plot([1:DataSize], MRS_struct.waterfreq(ii,:)');
             else
-                %rejectframe NP to get the red circles back
-                gg = 1;
-                hh = 1;
-                for ee = 1:length(rejectframes)  % for 1 to 166 (size waterfreq)
-                    rejectframeAP(hh) = rejectframes(gg); %rejectframeAP(1) = rejectframe(1)
-                    rejectframeAP(hh+1) = 0; %rejectframeAP(2) = 0
-                    hh=hh+2; %HH becomes 3
-                    gg=gg+1; %ii becomes 2
-                end
-
-                rejectframesplot = (1./rejectframeAP) .*  MRS_struct.waterfreq(ii,:);
+                rejectframesAll = [rejectframes'; rejectframes'];
+                rejectframesAll = reshape(rejectframesAll, [1 numel(rejectframesAll) ]);
+                rejectframesplot = (1./rejectframesAll) .*  MRS_struct.waterfreq(ii,:);
                 plot([1:DataSize], MRS_struct.waterfreq(ii,:)', '-', [1:DataSize], rejectframesplot, 'ro');
             end
         else
