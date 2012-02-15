@@ -66,7 +66,7 @@ else
     MRS_struct.Reference_compound='Cr';
 end
 MRS_struct.LB=LB;
-MRS_struct.versionload = '111214';
+MRS_struct.versionload = '120122';
 FreqPhaseAlign=1; %110825
 
 
@@ -548,7 +548,10 @@ for ii=1:numpfiles
 
                 %need to rescale area for 1 frame bit messy -
                 % convert back to  ppm, rads for new initialiser
-                conv = [1 1/(2*42.576*3) 1/(42.576*3) (pi/180) 1 1 ];
+                % CJE 120118 - correct linear baseline too. without this
+                % the linear component can dominate
+                conv = [1 1/(2*42.576*3) 1/(42.576*3) (pi/180) 1 1/size(AllFramesFT,2) ];
+
                 Cr_initx = Cr_initx .* conv;
 
                 % Water peak freq shift estimation
@@ -612,6 +615,19 @@ for ii=1:numpfiles
                 %	 frequpper = repmat(frequpper, [1 totalframes]);
                 %	 freqlower = repmat(freqlower, [1 totalframes]);
 
+                % CJE branch on 120126, merge with master 120209
+                % Add condition to discard points after jump in
+                % water freq > 0.01ppm
+                waterreject = [ 0 (abs(diff(MRS_struct.waterfreq(ii,:)))>0.01) ]
+                %waterreject checks ALL frames
+                waterreject = reshape(waterreject, [2 numel(waterreject)/2])
+                waterreject = max(waterreject);
+                
+                rejectframes = rejectframes + waterreject'
+                
+                %prevent double counting
+                rejectframes = (rejectframes>0)
+
                 lastreject = -1;
                 numreject=0;
                 %    for jj=1:totalframes
@@ -637,8 +653,7 @@ for ii=1:numpfiles
                         AllFramesFTrealign(:,(2*pairnumber)) =  EvenFramesFTrealign(1:end, pairnumber);
                     end
                 end
-                numreject = 2 * sum(rejectframes); % ON and OFF get rejected
-
+                numreject = 2 * 2 * sum(rejectframes); % ON and OFF get rejected and TWO phase cycles.
 
 
                 for jj=1:(totalframes/2)
@@ -718,17 +733,9 @@ for ii=1:numpfiles
                 % 110825 - don't worry about this, for the moment
                 plot([1:DataSize], MRS_struct.waterfreq(ii,:)');
             else
-                %rejectframe NP to get the red circles back
-                gg = 1;
-                hh = 1;
-                for ee = 1:length(rejectframes)  % for 1 to 166 (size waterfreq)
-                    rejectframeAP(hh) = rejectframes(gg); %rejectframeAP(1) = rejectframe(1)
-                    rejectframeAP(hh+1) = 0; %rejectframeAP(2) = 0
-                    hh=hh+2; %HH becomes 3
-                    gg=gg+1; %ii becomes 2
-                end
-
-                rejectframesplot = (1./rejectframeAP) .*  MRS_struct.waterfreq(ii,:);
+                rejectframesAll = [rejectframes'; rejectframes'];
+                rejectframesAll = reshape(rejectframesAll, [1 numel(rejectframesAll) ]);
+                rejectframesplot = (1./rejectframesAll) .*  MRS_struct.waterfreq(ii,:);
                 plot([1:DataSize], MRS_struct.waterfreq(ii,:)', '-', [1:DataSize], rejectframesplot, 'ro');
             end
         else
@@ -772,8 +779,9 @@ for ii=1:numpfiles
         text(0,0.3, tmp, 'FontName', 'Courier');
         
         script_path=which('GannetLoad');
-        Gannet_circle=[script_path(1:(end-23)) 'GANNET_circle.png'];
-        Gannet_circle_white=[script_path(1:(end-23)) 'GANNET_circle_white.jpg'];
+        % CJE update for GE
+        Gannet_circle=[script_path(1:(end-12)) 'GANNET_circle.png'];
+        Gannet_circle_white=[script_path(1:(end-12)) 'GANNET_circle_white.jpg'];
         A=imread(Gannet_circle);
         A2=imread(Gannet_circle_white);
         hax=axes('Position',[0.85, 0.05, 0.15, 0.15]);
@@ -824,8 +832,9 @@ for ii=1:numpfiles
         hax=axes('Position',[0.85, 0.05, 0.15, 0.15]);
         %set(gca,'Units','normalized');set(gca,'Position',[0.05 0.05 1.85 0.15]);
         image(A2);axis off; axis square;
-        set(gcf,'PaperSize',[8.5 6.5]);
+        % fix pdf output, where default is cm
         set(gcf, 'PaperUnits', 'inches');
+        set(gcf,'PaperSize',[8.5 6.5]);
         set(gcf,'PaperPosition',[.25 .25 8 6]);
         if(strcmpi(MRS_struct.vendor,'Philips_data'))
             pdfname=[ 'MRSload_output/' fullpath '.pdf' ];
@@ -932,8 +941,9 @@ for ii=1:numpfiles
         hax=axes('Position',[0.85, 0.05, 0.15, 0.15]);
         %set(gca,'Units','normalized');set(gca,'Position',[0.05 0.05 1.85 0.15]);
         image(A2);axis off; axis square;
-        set(gcf,'PaperSize',[8.5 6.5]);
+        % fix pdf output, where default is cm
         set(gcf, 'PaperUnits', 'inches');
+        set(gcf,'PaperSize',[8.5 6.5]);
         set(gcf,'PaperPosition',[.25 .25 8 6]);
         if(strcmpi(MRS_struct.vendor,'Philips_data'))
             pdfname=[ 'MRSload_output/' fullpath '.pdf' ];

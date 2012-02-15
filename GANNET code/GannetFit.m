@@ -47,7 +47,7 @@ freq=MRS_struct.freq;
 if strcmp(MRS_struct.Reference_compound,'H2O')
     WaterData=MRS_struct.waterspec;
 end
-MRS_struct.versionfit = '111214';
+MRS_struct.versionfit = '120131';
 disp(['GABA Fit Version is ' MRS_struct.versionfit ]);
 fitwater=1;
 numscans=size(GABAData);
@@ -311,7 +311,7 @@ for ii=1:numscans
 
             residw = -residw;
             if(waterfit_method == FIT_NLINFIT)
-                LGModelInit = LGModelParam; %111209 initialise from LSQCURV
+                LGModelInit = LGModelParam(ii,:); % CJE 4 Jan 12
         
                 % nlinfit options
                 nlinopts = statset('nlinfit');
@@ -427,7 +427,14 @@ for ii=1:numscans
         MRS_struct.GABAIU_Error_cr(ii) = (MRS_struct.GABAFitError(ii) .^ 2 + ...
             MRS_struct.CrFitError(ii) .^ 2 ) .^ 0.5;
         MRS_struct.CrArea(ii)=sum(real(LorentzModel(CrFitParams(ii,:),freqrange)-LorentzModel([0 CrFitParams(ii,2:end)],freqrange))) * (freq(1) - freq(2));
-        MRS_struct.gabaiuCr(ii)=MRS_struct.gabaArea(ii)./MRS_struct.CrArea(ii)/2.0; %Factor of 2.0 account for CR coming from OFF not all data, and sum not average...
+% CJE 120131
+        %MRS_struct.gabaiuCr(ii)=MRS_struct.gabaArea(ii)./MRS_struct.CrArea(ii)/2.0; %Factor of 2.0 account for CR coming from OFF not all data, and sum not average...
+        % effective editing efficiency of both Cr and GABA is 0.5, 
+        % Cr 3.0 has 3 spins, GABA 3.0 has 2.  Cr is from SUM, so
+        % need factor (1/2)...
+        MRS_struct.gabaiuCr(ii)= MRS_struct.gabaArea(ii)./ ...
+	    MRS_struct.CrArea(ii) * (3/2) * (1/2); 
+            
         %alter resid Cr for plotting.
         residCr = residCr + Crmin - resmaxCr;
         %Plot the Cr fit
@@ -532,7 +539,7 @@ for ii=1:numscans
     tmp = sprintf('GABA+ Area   : %.4f', MRS_struct.gabaArea(ii) );
     text(0,0.6, tmp, 'FontName', 'Courier');
     if strcmp(MRS_struct.Reference_compound,'H2O')
-        tmp = sprintf('H2O/Cr Area   :%.3f/%.3f ', MRS_struct.waterArea(ii),MRS_struct.GABAIU_Error_cr(ii) );
+        tmp = sprintf('H2O/Cr Area   :%.3f/%.3f ', MRS_struct.waterArea(ii),MRS_struct.CrArea(ii) );
         text(0,0.5, tmp, 'FontName', 'Courier');
         %tmp = sprintf('Cr Area      : %.4f', MRS_struct.CrArea(ii) );
         %text(0,0.4, tmp, 'FontName', 'Courier');
@@ -740,6 +747,10 @@ T2_GABA = 0.088; % from JMRI paper 2011 Eden et al.
 T1_Water = 1.100; % average of WM and GM, estimated from Wansapura 1999
 T2_Water = 0.095; % average of WM and GM, estimated from Wansapura 1999
 MM=0.45;  % MM correction: fraction of GABA in GABA+ peak. (In TrypDep, 30 subjects: 55% of GABA+ was MM)
+% 120131 CJE. CUBRIC people don't like change.  fudge MM so that resulting GABA
+% concentrations are the same, after the updated T2 vals - until IUs are
+% coordinated.  Sorry!
+MM = 0.45*0.779;
 TR=1.8;
 TE=0.068;
 N_H_GABA=2;
