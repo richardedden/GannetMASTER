@@ -854,6 +854,11 @@ for ii=1:numpfiles
         %are brought in, no alignment is necessary.  Not sure what else has
         %not yet been done...
         %Prob need to fit the Cr peak to pull out amplitude?
+        %20120123  Need to apply line broadening here
+        MRS_struct.gabadata=FullData;
+        ONData = MRS_struct.ondata.'.* repmat( (exp(-(time')*LB*pi)), [1 1]);
+        OFFData = MRS_struct.offdata.'.* repmat( (exp(-(time')*LB*pi)), [1 1]);
+        %End of 20120123 LB change
         MRS_struct.gabaspec(ii,:) = fftshift(fft(MRS_struct.ondata-MRS_struct.offdata,ZeroFillTo));
         MRS_struct.sumspec(ii,:) = fftshift(fft(MRS_struct.ondata+MRS_struct.offdata,ZeroFillTo));
         MRS_struct.OFFspec(ii,:) = fftshift(fft(MRS_struct.offdata,ZeroFillTo));
