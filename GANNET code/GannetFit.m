@@ -47,7 +47,7 @@ freq=MRS_struct.freq;
 if strcmp(MRS_struct.Reference_compound,'H2O')
     WaterData=MRS_struct.waterspec;
 end
-MRS_struct.versionfit = '120222';
+MRS_struct.versionfit = '120222a';
 disp(['GABA Fit Version is ' MRS_struct.versionfit ]);
 fitwater=1;
 numscans=size(GABAData);

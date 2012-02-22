@@ -66,7 +66,7 @@ else
     MRS_struct.Reference_compound='Cr';
 end
 MRS_struct.LB=LB;
-MRS_struct.versionload = '120222';
+MRS_struct.versionload = '120222a';
 FreqPhaseAlign=1; %110825
 
 
