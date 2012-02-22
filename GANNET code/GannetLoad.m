@@ -66,7 +66,7 @@ else
     MRS_struct.Reference_compound='Cr';
 end
 MRS_struct.LB=LB;
-MRS_struct.versionload = '120122';
+MRS_struct.versionload = '120222';
 FreqPhaseAlign=1; %110825
 
 
@@ -653,8 +653,12 @@ for ii=1:numpfiles
                         AllFramesFTrealign(:,(2*pairnumber)) =  EvenFramesFTrealign(1:end, pairnumber);
                     end
                 end
-                numreject = 2 * 2 * sum(rejectframes); % ON and OFF get rejected and TWO phase cycles.
-
+                if(strcmpi(MRS_struct.vendor,'GE'))
+                  numreject = 2 * 2 * sum(rejectframes); % ON and OFF get rejected and TWO phase cycles.
+                else
+                  numreject = 2 * sum(rejectframes); % ON and OFF get rejected.
+                end 
+                %not keen on this phase cycles=2 hard code. Added GE IF
 
                 for jj=1:(totalframes/2)
                     AllFramesFTrealign(:,(2*jj-1)) = OddFramesFTrealign(1:end, jj);
