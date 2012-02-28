@@ -669,7 +669,7 @@ for ii=1:numpfiles
                 if(strcmpi(MRS_struct.vendor,'Philips_data'))
                     MRS_struct.Navg(ii) = MRS_struct.Navg(ii)*MRS_struct.nrows - numreject*MRS_struct.nrows; %need to check up on both Philips RE 121214
                 elseif(strcmpi(MRS_struct.vendor,'Philips'))
-                    MRS_struct.Navg(ii) = MRS_struct.Navg(ii)*MRS_struct.nrows - numreject*MRS_struct.nrows; %need to check up on both Philips RE 121214
+                    MRS_struct.Navg(ii) = MRS_struct.Navg(ii) - numreject*MRS_struct.Navg(ii)/MRS_struct.nrows; %need to check up on both Philips RE 121214
                 else
                     MRS_struct.Navg(ii) = MRS_struct.Navg(ii) - numreject;
                 end

@@ -1,5 +1,5 @@
     function [FitParams, rejectframe, residCr]  = FitPeaksByFrames(freq, FrameData, initx)
-    
+    warning off;
     %options = optimset('lsqcurvefit');
     %options = optimset(options,'Display','off','TolFun',1e-10,'Tolx',1e-10,'MaxIter',1e5 , ...
     %		   'MaxFunEvals', 1e12);
