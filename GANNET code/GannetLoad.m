@@ -53,7 +53,7 @@ global ComftW;
 
 %LB=4; %RE default
 %LB = 1.3;
-LB = 1.3;
+LB = 3; %RE 120228 more reasonable than 1.3...
 ZeroFillTo = 32768;
 
 %ZeroFillTo = 16384;
@@ -629,7 +629,7 @@ for ii=1:numpfiles
                     rejectframes = rejectframes + waterreject';
                 end
                 %prevent double counting
-                rejectframes = (rejectframes>0)
+                rejectframes = (rejectframes>0);
 
                 lastreject = -1;
                 numreject=0;
