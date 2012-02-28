@@ -626,7 +626,7 @@ for ii=1:numpfiles
                     waterreject = reshape(waterreject, [2 numel(waterreject)/2])
                     waterreject = max(waterreject);
 
-                    rejectframes = rejectframes + waterreject'
+                    rejectframes = rejectframes + waterreject';
                 end
                 %prevent double counting
                 rejectframes = (rejectframes>0)
@@ -668,7 +668,7 @@ for ii=1:numpfiles
                 end
                 if(strcmpi(MRS_struct.vendor,'Philips_data'))
                     MRS_struct.Navg(ii) = MRS_struct.Navg(ii)*MRS_struct.nrows - numreject*MRS_struct.nrows; %need to check up on both Philips RE 121214
-                elseif(strcmpi(MRS_struct.vendor,'Philips_sdat'))
+                elseif(strcmpi(MRS_struct.vendor,'Philips'))
                     MRS_struct.Navg(ii) = MRS_struct.Navg(ii)*MRS_struct.nrows - numreject*MRS_struct.nrows; %need to check up on both Philips RE 121214
                 else
                     MRS_struct.Navg(ii) = MRS_struct.Navg(ii) - numreject;
