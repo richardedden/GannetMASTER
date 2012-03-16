@@ -19,7 +19,7 @@ function [ MRS_struct ] = PhilipsRead(MRS_struct, fname, fname_water )
    sparidx=find(ismember(sparheader, 'sample_frequency')==1);
    MRS_struct.sw = str2num(sparheader{sparidx+2});
    
-   MRS_struct.data = SDATreadMEGA(fname, MRS_struct.npoints, MRS_struct.nrows);
+   MRS_struct.data = SDATreadMEGA(fname, MRS_struct.npoints, MRS_struct.nrows)*MRS_struct.Navg(MRS_struct.ii)/MRS_struct.nrows;
    
    if nargin>2
        % work out data header name
