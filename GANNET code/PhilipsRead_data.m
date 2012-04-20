@@ -41,6 +41,8 @@ function [ MRS_struct ] = PhilipsRead_data(MRS_struct, fname, fname_water )
    %Philips data appear to be phased already (ideal case)
    MRS_struct.data = conj(MRS_struct.data); %RE 110728 - empirical factor to scale 'like GE'
    MRS_struct.data = reshape(MRS_struct.data,[size(MRS_struct.data,1) size(MRS_struct.data,2)*size(MRS_struct.data,3)]);
-   MRS_struct.data = -MRS_struct.data .*repmat(conj(MRS_struct.data(1,:))./abs(MRS_struct.data(1,:)),[MRS_struct.npoints 1]);
+   % Depending on the ordering of OFF and ON, the minus sign here may have
+   % to be removed.... not sure how to automate/fix... raee 4/9/12
+   MRS_struct.data = - MRS_struct.data .*repmat(conj(MRS_struct.data(1,:))./abs(MRS_struct.data(1,:)),[MRS_struct.npoints 1]);
 end
 

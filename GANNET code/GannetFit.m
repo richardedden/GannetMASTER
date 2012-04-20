@@ -75,9 +75,9 @@ for ii=1:numscans
     %MRS_struct.freq(18000)
     %Hard code it to fit from 2.75 ppm to 3.55 ppm
     z=abs(MRS_struct.freq-3.55);
-    lowerbound=find(min(z)==z);
-    z=abs(MRS_struct.freq-2.75);
-    upperbound=find(min(z)==z);
+    lowerbound=find(min(z)==z)
+    z=abs(MRS_struct.freq-2.79);%2.75
+    upperbound=find(min(z)==z)
     %lowerbound=17342;
     %upperbound=17961;
     %upperbound=18000;

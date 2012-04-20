@@ -862,10 +862,14 @@ for ii=1:numpfiles
         ONData = MRS_struct.ondata.'.* repmat( (exp(-(time')*LB*pi)), [1 1]);
         OFFData = MRS_struct.offdata.'.* repmat( (exp(-(time')*LB*pi)), [1 1]);
         %End of 20120123 LB change
-        MRS_struct.gabaspec(ii,:) = fftshift(fft(MRS_struct.ondata-MRS_struct.offdata,ZeroFillTo));
-        MRS_struct.sumspec(ii,:) = fftshift(fft(MRS_struct.ondata+MRS_struct.offdata,ZeroFillTo));
-        MRS_struct.OFFspec(ii,:) = fftshift(fft(MRS_struct.offdata,ZeroFillTo));
-        %Still worth outputting the figure...
+        %Looks like it didn't go far enough!
+%         MRS_struct.gabaspec(ii,:) = fftshift(fft(MRS_struct.ondata-MRS_struct.offdata,ZeroFillTo));
+%         MRS_struct.sumspec(ii,:) = fftshift(fft(MRS_struct.ondata+MRS_struct.offdata,ZeroFillTo));
+%         MRS_struct.OFFspec(ii,:) = fftshift(fft(MRS_struct.offdata,ZeroFillTo));
+        MRS_struct.gabaspec(ii,:) = fftshift(fft(ONData-OFFData,ZeroFillTo));
+        MRS_struct.sumspec(ii,:) = fftshift(fft(ONData+OFFData,ZeroFillTo));
+        MRS_struct.OFFspec(ii,:) = fftshift(fft(OFFData,ZeroFillTo));
+%Still worth outputting the figure...
         if(ishandle(101))
             close(101)
         end
