@@ -66,7 +66,7 @@ else
     MRS_struct.Reference_compound='Cr';
 end
 MRS_struct.LB=LB;
-MRS_struct.versionload = '120222a';
+MRS_struct.versionload = '120829';
 FreqPhaseAlign=1; %110825
 
 
@@ -124,11 +124,14 @@ for ii=1:numpfiles
     
     % 110825
         if(strcmpi(MRS_struct.vendor,'Siemens'))
-                    %Need to set Water_Positive based on water signal
+            %Need to set Water_Positive based on water signal
             %This is a start, but is not yet there...
             if(exist('waterfile'))    
                 MRS_struct.Reference_compound='H2O';
                 MRS_struct = SiemensRead_RE(MRS_struct, temppfile{ii*2-1},temppfile{ii*2}, waterfile{ii});
+                MRS_struct.Nwateravg = 1;
+                MRS_struct.phase{ii} = 0;
+                MRS_struct.phase_firstorder(ii) = 0;
             else
                  MRS_struct.Reference_compound='Cr';
                 MRS_struct = SiemensRead_RE(MRS_struct, temppfile{ii*2-1},temppfile{ii*2});

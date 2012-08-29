@@ -236,7 +236,7 @@ fclose(fid);
  MRS_struct.ondata = hmm_complex;
  MRS_struct.data =[MRS_struct.ondata;MRS_struct.offdata];
  if(nargin==4)
-      %%%Now load in the Water data
+%%%Now load in the Water data
 rda_filename=water_filename; %This is generally file3
 fid = fopen(rda_filename);
 

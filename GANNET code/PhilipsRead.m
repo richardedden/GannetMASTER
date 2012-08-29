@@ -3,7 +3,7 @@ function [ MRS_struct ] = PhilipsRead(MRS_struct, fname, fname_water )
 % 110825
 
    % work out data header name
-   sparname = [fname(1:(end-4)) MRS_struct.spar_string];
+   sparname = [fname(1:(end-4)) MRS_struct.spar_string]
    sparheader = textread(sparname, '%s');
    sparidx=find(ismember(sparheader, 'samples')==1);
    MRS_struct.npoints = str2num(sparheader{sparidx+2});

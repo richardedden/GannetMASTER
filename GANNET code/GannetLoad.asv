@@ -53,7 +53,7 @@ global ComftW;
 
 %LB=4; %RE default
 %LB = 1.3;
-LB = 1.3;
+LB = 3; %RE 120228 more reasonable than 1.3...
 ZeroFillTo = 32768;
 
 %ZeroFillTo = 16384;
@@ -66,7 +66,7 @@ else
     MRS_struct.Reference_compound='Cr';
 end
 MRS_struct.LB=LB;
-MRS_struct.versionload = '111212';
+MRS_struct.versionload = '120222a';
 FreqPhaseAlign=1; %110825
 
 
@@ -124,7 +124,7 @@ for ii=1:numpfiles
     
     % 110825
         if(strcmpi(MRS_struct.vendor,'Siemens'))
-                    %Need to set Water_Positive based on water signal
+            %Need to set Water_Positive based on water signal
             %This is a start, but is not yet there...
             if(exist('waterfile'))    
                 MRS_struct.Reference_compound='H2O';
@@ -150,6 +150,7 @@ for ii=1:numpfiles
         elseif(strcmpi(MRS_struct.vendor,'Philips'))
             %Need to set Water_Positive based on water signal
             Water_Positive=1;
+            MRS_struct.ii=ii;
             if strcmpi(MRS_struct.Reference_compound,'H2O')
                 MRS_struct = PhilipsRead(MRS_struct, temppfile{ii}, waterfile{ii});
                 WaterData = MRS_struct.data_water;
@@ -165,11 +166,12 @@ for ii=1:numpfiles
             LarmorFreq = 127.8;
          elseif(strcmpi(MRS_struct.vendor,'Philips_data'))
             Water_Positive=0;
+            MRS_struct.ii=ii;
             temppfile{ii};
             MRS_struct = PhilipsRead_data(MRS_struct, temppfile{ii});
             da_xres = MRS_struct.npoints;
-            da_yres = MRS_struct.nrows*MRS_struct.Navg;
-            totalframes = MRS_struct.nrows*MRS_struct.Navg;
+            da_yres = MRS_struct.nrows*MRS_struct.Navg(ii);
+            totalframes = MRS_struct.nrows*MRS_struct.Navg(ii);
             FullData = MRS_struct.data;
             LarmorFreq = 127.8;       
 
@@ -415,8 +417,8 @@ for ii=1:numpfiles
         %     OddFramesFTrealign=AllFramesFT(:,1:2:end);
         %     EvenFramesFTrealign=AllFramesFT(:,2:2:end);
         if(strcmpi(MRS_struct.vendor,'Philips_data'))
-            AllFramesFTrealign=reshape(AllFramesFTrealign,[size(AllFramesFTrealign,1) MRS_struct.Navg MRS_struct.nrows]);
-            AllFramesFT=reshape(AllFramesFT,[size(AllFramesFT,1) MRS_struct.Navg MRS_struct.nrows]);
+            AllFramesFTrealign=reshape(AllFramesFTrealign,[size(AllFramesFTrealign,1) MRS_struct.Navg(ii) MRS_struct.nrows]);
+            AllFramesFT=reshape(AllFramesFT,[size(AllFramesFT,1) MRS_struct.Navg(ii) MRS_struct.nrows]);
             OddFramesFTrealign=AllFramesFTrealign(:,:,1:2:end);
             EvenFramesFTrealign=AllFramesFTrealign(:,:,2:2:end);
             OddFramesFT=AllFramesFT(:,:,1:2:end);
@@ -522,15 +524,15 @@ for ii=1:numpfiles
             phase;
             %CrSumSpec = CrSumSpec(lb:ub);
             CrSumSpec = sum(AllFramesFT(lb:ub,:),2)*exp(1i*pi/180*(phase));
-            plot(MRS_struct.freq(lb:ub),real(CrSumSpec));
+            %plot(MRS_struct.freq(lb:ub),real(CrSumSpec));
             CrSumSpecFit = FitPeaksByFrames(freqrange, CrSumSpec, Cr_initx);
             %Apply phase to AllFrameFT
             CrSumSpecFit(4);
             AllFramesFT=AllFramesFT*exp(1i*pi/180*(CrSumSpecFit(4)+phase));
-            figure(12);
-            plot(MRS_struct.fre),real(sum(AllFramesFT,2)));
-            %size(CrSumSpec)
-            %plot(MRS_struct.freq,real(CrSumSpec'));
+%             figure(12);
+%             plot(MRS_struct.freq,real(sum(AllFramesFT,2)));
+%             %size(CrSumSpec)
+%             %plot(MRS_struct.freq,real(CrSumSpec'));
             Cr_initx = CrSumSpecFit;
             %rescale to account for Navg
             Cr_initx(1) = Cr_initx(1)/size(AllFramesFT,2);
@@ -546,7 +548,10 @@ for ii=1:numpfiles
 
                 %need to rescale area for 1 frame bit messy -
                 % convert back to  ppm, rads for new initialiser
-                conv = [1 1/(2*42.576*3) 1/(42.576*3) (pi/180) 1 1 ];
+                % CJE 120118 - correct linear baseline too. without this
+                % the linear component can dominate
+                conv = [1 1/(2*42.576*3) 1/(42.576*3) (pi/180) 1 1/size(AllFramesFT,2) ];
+
                 Cr_initx = Cr_initx .* conv;
 
                 % Water peak freq shift estimation
@@ -610,6 +615,22 @@ for ii=1:numpfiles
                 %	 frequpper = repmat(frequpper, [1 totalframes]);
                 %	 freqlower = repmat(freqlower, [1 totalframes]);
 
+                % CJE branch on 120126, merge with master 120209
+                % Add condition to discard points after jump in
+                % water freq > 0.01ppm
+                %RAEE - make this GE specific for now... both because short
+                %phase cycle and because WS is 'bad'...
+                if(strcmpi(MRS_struct.vendor,'GE'))
+                    waterreject = [ 0 (abs(diff(MRS_struct.waterfreq(ii,:)))>0.01) ]
+                    %waterreject checks ALL frames
+                    waterreject = reshape(waterreject, [2 numel(waterreject)/2])
+                    waterreject = max(waterreject);
+
+                    rejectframes = rejectframes + waterreject';
+                end
+                %prevent double counting
+                rejectframes = (rejectframes>0);
+
                 lastreject = -1;
                 numreject=0;
                 %    for jj=1:totalframes
@@ -635,17 +656,22 @@ for ii=1:numpfiles
                         AllFramesFTrealign(:,(2*pairnumber)) =  EvenFramesFTrealign(1:end, pairnumber);
                     end
                 end
-                numreject = 2 * sum(rejectframes); % ON and OFF get rejected
-
-
+                if(strcmpi(MRS_struct.vendor,'GE'))
+                  numreject = 2 * 2 * sum(rejectframes); % ON and OFF get rejected and TWO phase cycles.
+                else
+                  numreject = 2 * sum(rejectframes); % ON and OFF get rejected.
+                end 
+                %not keen on this phase cycles=2 hard code. Added GE IF
 
                 for jj=1:(totalframes/2)
                     AllFramesFTrealign(:,(2*jj-1)) = OddFramesFTrealign(1:end, jj);
                 end
                 if(strcmpi(MRS_struct.vendor,'Philips_data'))
-                    MRS_struct.Navg = MRS_struct.Navg*MRS_struct.nrows - numreject;
+                    MRS_struct.Navg(ii) = MRS_struct.Navg(ii)*MRS_struct.nrows - numreject*MRS_struct.nrows; %need to check up on both Philips RE 121214
+                elseif(strcmpi(MRS_struct.vendor,'Philips'))
+                    MRS_struct.Navg(ii) = MRS_struct.Navg(ii) - numreject*MRS_struct.Navg(ii)/MRS_struct.nrows; %need to check up on both Philips RE 121214
                 else
-                    MRS_struct.Navg = MRS_struct.Navg - numreject;
+                    MRS_struct.Navg(ii) = MRS_struct.Navg(ii) - numreject;
                 end
             else
                 % no realignment
@@ -714,17 +740,9 @@ for ii=1:numpfiles
                 % 110825 - don't worry about this, for the moment
                 plot([1:DataSize], MRS_struct.waterfreq(ii,:)');
             else
-                %rejectframe NP to get the red circles back
-                gg = 1;
-                hh = 1;
-                for ee = 1:length(rejectframes)  % for 1 to 166 (size waterfreq)
-                    rejectframeAP(hh) = rejectframes(gg); %rejectframeAP(1) = rejectframe(1)
-                    rejectframeAP(hh+1) = 0; %rejectframeAP(2) = 0
-                    hh=hh+2; %HH becomes 3
-                    gg=gg+1; %ii becomes 2
-                end
-
-                rejectframesplot = (1./rejectframeAP) .*  MRS_struct.waterfreq(ii,:);
+                rejectframesAll = [rejectframes'; rejectframes'];
+                rejectframesAll = reshape(rejectframesAll, [1 numel(rejectframesAll) ]);
+                rejectframesplot = (1./rejectframesAll) .*  MRS_struct.waterfreq(ii,:);
                 plot([1:DataSize], MRS_struct.waterfreq(ii,:)', '-', [1:DataSize], rejectframesplot, 'ro');
             end
         else
@@ -752,7 +770,7 @@ for ii=1:numpfiles
         tmp = [ 'filename    : ' MRS_struct.pfile{ii} ];
         tmp = regexprep(tmp, '_','-');
         text(0,0.9, tmp, 'FontName', 'Courier');
-        tmp = [ 'Navg        : ' num2str(MRS_struct.Navg) ];
+        tmp = [ 'Navg        : ' num2str(MRS_struct.Navg(ii)) ];
         text(0,0.8, tmp, 'FontName', 'Courier');
         tmp = sprintf('FWHM (Hz)   : %.2f', MRS_struct.fwhmHz(ii) );
         text(0,0.7, tmp, 'FontName', 'Courier');
@@ -768,8 +786,9 @@ for ii=1:numpfiles
         text(0,0.3, tmp, 'FontName', 'Courier');
         
         script_path=which('GannetLoad');
-        Gannet_circle=[script_path(1:(end-24)) 'GANNET_circle.png'];
-        Gannet_circle_white=[script_path(1:(end-24)) 'GANNET_circle_white.jpg'];
+        % CJE update for GE
+        Gannet_circle=[script_path(1:(end-12)) 'GANNET_circle.png'];
+        Gannet_circle_white=[script_path(1:(end-12)) 'GANNET_circle_white.jpg'];
         A=imread(Gannet_circle);
         A2=imread(Gannet_circle_white);
         hax=axes('Position',[0.85, 0.05, 0.15, 0.15]);
@@ -820,8 +839,9 @@ for ii=1:numpfiles
         hax=axes('Position',[0.85, 0.05, 0.15, 0.15]);
         %set(gca,'Units','normalized');set(gca,'Position',[0.05 0.05 1.85 0.15]);
         image(A2);axis off; axis square;
-        set(gcf,'PaperSize',[8.5 6.5]);
+        % fix pdf output, where default is cm
         set(gcf, 'PaperUnits', 'inches');
+        set(gcf,'PaperSize',[8.5 6.5]);
         set(gcf,'PaperPosition',[.25 .25 8 6]);
         if(strcmpi(MRS_struct.vendor,'Philips_data'))
             pdfname=[ 'MRSload_output/' fullpath '.pdf' ];
@@ -837,10 +857,19 @@ for ii=1:numpfiles
         %are brought in, no alignment is necessary.  Not sure what else has
         %not yet been done...
         %Prob need to fit the Cr peak to pull out amplitude?
-        MRS_struct.gabaspec(ii,:) = fftshift(fft(MRS_struct.ondata-MRS_struct.offdata,ZeroFillTo));
-        MRS_struct.sumspec(ii,:) = fftshift(fft(MRS_struct.ondata+MRS_struct.offdata,ZeroFillTo));
-        MRS_struct.OFFspec(ii,:) = fftshift(fft(MRS_struct.offdata,ZeroFillTo));
-        %Still worth outputting the figure...
+        %20120123  Need to apply line broadening here
+        MRS_struct.gabadata=FullData;
+        ONData = MRS_struct.ondata.'.* repmat( (exp(-(time')*LB*pi)), [1 1]);
+        OFFData = MRS_struct.offdata.'.* repmat( (exp(-(time')*LB*pi)), [1 1]);
+        %End of 20120123 LB change
+        %Looks like it didn't go far enough!
+%         MRS_struct.gabaspec(ii,:) = fftshift(fft(MRS_struct.ondata-MRS_struct.offdata,ZeroFillTo));
+%         MRS_struct.sumspec(ii,:) = fftshift(fft(MRS_struct.ondata+MRS_struct.offdata,ZeroFillTo));
+%         MRS_struct.OFFspec(ii,:) = fftshift(fft(MRS_struct.offdata,ZeroFillTo));
+        MRS_struct.gabaspec(ii,:) = fftshift(fft(ONData-OFFData,ZeroFillTo));
+        MRS_struct.sumspec(ii,:) = fftshift(fft(ONData+OFFData,ZeroFillTo));
+        MRS_struct.OFFspec(ii,:) = fftshift(fft(OFFData,ZeroFillTo));
+%Still worth outputting the figure...
         if(ishandle(101))
             close(101)
         end
@@ -876,8 +905,8 @@ for ii=1:numpfiles
         text(0,0.3, tmp, 'FontName', 'Courier');
         
         script_path=which('GannetLoad');
-        Gannet_circle=[script_path(1:(end-24)) 'GANNET_circle.png'];
-        Gannet_circle_white=[script_path(1:(end-24)) 'GANNET_circle_white.jpg'];
+        Gannet_circle=[script_path(1:(end-12)) 'GANNET_circle.png'];
+        Gannet_circle_white=[script_path(1:(end-12)) 'GANNET_circle_white.jpg'];
         A=imread(Gannet_circle);
         A2=imread(Gannet_circle_white);
         hax=axes('Position',[0.85, 0.05, 0.15, 0.15]);
@@ -928,8 +957,9 @@ for ii=1:numpfiles
         hax=axes('Position',[0.85, 0.05, 0.15, 0.15]);
         %set(gca,'Units','normalized');set(gca,'Position',[0.05 0.05 1.85 0.15]);
         image(A2);axis off; axis square;
-        set(gcf,'PaperSize',[8.5 6.5]);
+        % fix pdf output, where default is cm
         set(gcf, 'PaperUnits', 'inches');
+        set(gcf,'PaperSize',[8.5 6.5]);
         set(gcf,'PaperPosition',[.25 .25 8 6]);
         if(strcmpi(MRS_struct.vendor,'Philips_data'))
             pdfname=[ 'MRSload_output/' fullpath '.pdf' ];

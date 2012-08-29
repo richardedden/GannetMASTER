@@ -47,7 +47,7 @@ freq=MRS_struct.freq;
 if strcmp(MRS_struct.Reference_compound,'H2O')
     WaterData=MRS_struct.waterspec;
 end
-MRS_struct.versionfit = '120222a';
+MRS_struct.versionfit = '120829';
 disp(['GABA Fit Version is ' MRS_struct.versionfit ]);
 fitwater=1;
 numscans=size(GABAData);
@@ -553,9 +553,12 @@ for ii=1:numscans
         text(0,0.2, tmp, 'FontName', 'Courier');
         tmp =       [ 'Ver(Load/Fit): ' MRS_struct.versionload ',' tmp2 ',' MRS_struct.versionfit];
         text(0,0.1, tmp, 'FontName', 'Courier');
+        %Don't print out phase for Siemens data - always zero anyway (RAEE 08292012)
+        if (strcmpi(MRS_struct.vendor,'Siemens')==0)
         tmp = sprintf('%.2f, %.2f',  MRS_struct.phase(ii),  MRS_struct.phase_firstorder(ii) );
         tmp =        ['Phase  \phi_0,\phi_1 : ' tmp];
         text(0, -0.0, tmp, 'FontName', 'Courier');
+        end
         tmp =        ['GABA, Water fit alg. :' tmp4 ];
         text(0,-0.1, tmp, 'FontName', 'Courier');
     else
@@ -751,7 +754,7 @@ MM=0.45;  % MM correction: fraction of GABA in GABA+ peak. (In TrypDep, 30 subje
 %This fraction is platform and implementation dependent, base on length and
 %shape of editing pulses and ifis Henry method. 
 %
-TR=1.8;
+TR=MRS_struct.TR/1000;
 TE=0.068;
 N_H_GABA=2;
 N_H_Water=2;
@@ -761,9 +764,16 @@ Nspectra = length(MRS_struct.pfile);
 T1_factor = (1-exp(-TR./T1_Water)) ./ (1-exp(-TR./T1_GABA));
 T2_factor = exp(-TE./T2_Water) ./ exp(-TE./T2_GABA);
 
-MRS_struct.gabaiu(ii) = (MRS_struct.gabaArea(ii)  ./  MRS_struct.waterArea(ii))  ...
+if(strcmpi(MRS_struct.vendor,'Siemens'))
+    MRS_struct.gabaiu(ii) = (MRS_struct.gabaArea(ii)  ./  MRS_struct.waterArea(ii))  ...
+    * PureWaterConc*WaterVisibility*T1_factor*T2_factor*(N_H_Water./N_H_GABA) ...
+    * MM ./ EditingEfficiency;
+else
+    MRS_struct.gabaiu(ii) = (MRS_struct.gabaArea(ii)  ./  MRS_struct.waterArea(ii))  ...
     * PureWaterConc*WaterVisibility*T1_factor*T2_factor*(N_H_Water./N_H_GABA) ...
     * MM * (MRS_struct.Nwateravg ./ MRS_struct.Navg(ii)) ./ EditingEfficiency;
+end
+
 
 %%%%%%%%%%%%%%% INSET FIGURE %%%%%%%%%%%%%%%%%%%%%%%
 function [h_main, h_inset]=inset(main_handle, inset_handle,inset_size)
