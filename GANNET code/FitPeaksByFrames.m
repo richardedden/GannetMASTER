@@ -1,5 +1,5 @@
     function [FitParams, rejectframe, residCr]  = FitPeaksByFrames(freq, FrameData, initx)
-    warning off;
+    
     %options = optimset('lsqcurvefit');
     %options = optimset(options,'Display','off','TolFun',1e-10,'Tolx',1e-10,'MaxIter',1e5 , ...
     %		   'MaxFunEvals', 1e12);
@@ -13,19 +13,13 @@
         % [fit_param, resnorm, resid, exitflag ]  = ...
         %     lsqcurvefit(@(xdummy,ydummy) LorentzModel(xdummy, ydummy), initx, ...
         % 		  freq', real(FrameData(:,jj)));
-        %120112 cje
-        %add lsqcurvefit initialisation here too, keep nlin initialisers
-        %separate from LSQ
-        [fit_param, resnorm, resid, exitflag ]  = ...
-            lsqcurvefit(@(xdummy,ydummy) LorentzModel(xdummy, ydummy), initx, ...
-                         freq', real(FrameData(:,jj)));
-              initxLSQ = fit_param;
-        
         [fit_param, residCr] = nlinfit(freq', real(FrameData(:,jj)), ...
             @(xdummy, ydummy) LorentzModel(xdummy, ydummy), ...
-            initxLSQ, nlinopts);
+            initx, nlinopts);
         FitParams(jj,:) = fit_param;
-        fit_plot = LorentzModel(fit_param, freq);
+        % 110715 remove linear baseline - think this helps...
+        %fit_plot = LorentzModel(fit_param, freq);
+        fit_plot = LorentzModel_nolinear(fit_param, freq);
         
           %figure(3); plot(freq', real(FrameData(:,jj)), 'g', freq', fit_plot,'b');
           %pause(2)

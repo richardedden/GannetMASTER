@@ -15,7 +15,8 @@ function [ MRS_struct ] = PhilipsRead(MRS_struct, fname, fname_water )
    %MRS_struct.Navg(MRS_struct.ii) = MRS_struct.nrows; %Trial SDAT might be average not sum.
    sparidx=find(ismember(sparheader, 'repetition_time')==1);
    MRS_struct.TR = str2num(sparheader{sparidx+2});
-   
+   sparidx=find(ismember(sparheader, 'synthesizer_frequency')==1);
+   MRS_struct.LarmorFreq = str2num(sparheader{sparidx+2})/1E6;
    sparidx=find(ismember(sparheader, 'sample_frequency')==1);
    MRS_struct.sw = str2num(sparheader{sparidx+2});
    
@@ -23,7 +24,7 @@ function [ MRS_struct ] = PhilipsRead(MRS_struct, fname, fname_water )
    
    if nargin>2
        % work out data header name
-       sparnameW = [fname_water(1:(end-4)) 'spar'];
+       sparnameW = [fname_water(1:(end-4)) MRS_struct.spar_string];
        sparheaderW = textread(sparnameW, '%s');
        sparidxW=find(ismember(sparheaderW, 'averages')==1);
        %MRS_struct.Nwateravg = str2num(sparheaderW{sparidxW+2});

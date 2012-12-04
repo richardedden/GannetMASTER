@@ -53,6 +53,7 @@ global ComftW;
 
 %LB=4; %RE default
 %LB = 1.3;
+
 LB = 3; %RE 120228 more reasonable than 1.3...
 ZeroFillTo = 32768;
 
@@ -66,7 +67,7 @@ else
     MRS_struct.Reference_compound='Cr';
 end
 MRS_struct.LB=LB;
-MRS_struct.versionload = '120829';
+MRS_struct.versionload = '121012';
 FreqPhaseAlign=1; %110825
 
 
@@ -164,11 +165,12 @@ for ii=1:numpfiles
             da_yres = MRS_struct.nrows;
             totalframes = MRS_struct.nrows;
             FullData = MRS_struct.data;
+            AlignTo = 2;
 
 
             LarmorFreq = 127.8;
          elseif(strcmpi(MRS_struct.vendor,'Philips_data'))
-            Water_Positive=0;
+            Water_Positive=1;
             MRS_struct.ii=ii;
             temppfile{ii};
             MRS_struct = PhilipsRead_data(MRS_struct, temppfile{ii});
@@ -176,13 +178,14 @@ for ii=1:numpfiles
             da_yres = MRS_struct.nrows*MRS_struct.Navg(ii);
             totalframes = MRS_struct.nrows*MRS_struct.Navg(ii);
             FullData = MRS_struct.data;
-            LarmorFreq = 127.8;       
+            LarmorFreq = 127.8;
+            AlignTo = 1;
 
         elseif(strcmpi(MRS_struct.vendor,'GE'))
             LarmorFreq = 127.35;
             Water_Positive=1;
             fid = fopen(pfiles{ii},'r', 'ieee-be');
-
+            AlignTo = 2;
             if fid == -1
                 tmp = [ 'Unable to locate Pfile ' pfiles{ii} ];
                 disp(tmp);
@@ -400,9 +403,14 @@ for ii=1:numpfiles
         %%%%%%%%%  Frame-by-frame Frequency Realignment to spectrum (assumed water) maximum%%%%%%%%
         % find peak location for frequency realignment
         [FrameMax, FrameMaxPos] = max(AllFramesFT, [], 1);
-        % align all peaks to _first_ transient (should be closest value set during Prescan)
-        FrameShift = FrameMaxPos - FrameMaxPos(1);
         
+        %Not always true that water starts in right place, if drif tis
+        %rapid...
+        water_off=abs(MRS_struct.freq-4.68);
+        water_index=find(min(water_off)==water_off)
+        
+        % align all peaks to _first_ transient (should be closest value set during Prescan)
+        FrameShift = FrameMaxPos - water_index;
         
         if(strcmpi(MRS_struct.vendor,'Philips_data'))     
            for jj=1:totalframes
@@ -411,7 +419,10 @@ for ii=1:numpfiles
         elseif (strcmpi(MRS_struct.vendor,'Philips'))
             for jj=1:totalframes
          	 AllFramesFTrealign(:,jj)=circshift(AllFramesFT(:,jj), -FrameShift(jj));
-           end
+            end
+        else
+            %GE data
+            AllFramesFTrealign=AllFramesFT;
         end
         
         MRS_struct.waterfreq(ii,:) = MRS_struct.freq(FrameMaxPos);
@@ -443,34 +454,211 @@ for ii=1:numpfiles
             %apply the pairwise approach used for GE, this fails as Philips
             %data acquired in phase cycle blocks of 16.
             
-            %Still need ranges for Creatine align plot
-            z=abs(MRS_struct.freq-3.12);
-            lb=find(min(z)==z);
-            z=abs(MRS_struct.freq-2.72);
-            ub=find(min(z)==z);
-            MRS_struct.fwhmHz(ii)=1/0;
-            
-            %For now just align Cr of the sum to 3.03 ppm...
-            freqrange = MRS_struct.freq(lb:ub);
-            Cr_initx = [ 30 0.1 3.0 0 0 0 ];
-            CrSumSpec = sum(AllFramesFT(lb:ub,:),2);
-            CrSumSpecFit = FitPeaksByFrames(freqrange, CrSumSpec, Cr_initx);
-            CrFreqShift = CrSumSpecFit(3);
-            CrFreqShift = CrFreqShift - 3.03*LarmorFreq;
-            CrFreqShift = CrFreqShift ./ (3*42.58*(MRS_struct.freq(2) - MRS_struct.freq(1) ));
-            CrFreqShift_points = round(CrFreqShift);
-            size(AllFramesFT);
-            for jj=1:(size(AllFramesFT,2)*size(AllFramesFT,3))
-                AllFramesFTrealign(:,jj)=circshift(AllFramesFT(:,jj), -CrFreqShift_points);
+            %Still need ranges for CHOLINE!!!! align plot
+                    z=abs(MRS_struct.freq-3.43);
+                    lb_cho=find(min(z)==z)
+                    z=abs(MRS_struct.freq-3.13);
+                    ub_cho=find(min(z)==z)
+                    MRS_struct.fwhmHz(ii)=1/0;
+
+                    %For now just align Cr of the sum to 3.03 ppm...
+                    freqrange_cho = MRS_struct.freq(lb_cho:ub_cho);
+                    Cho_initx = [ 30 0.05 3.25 0 0 0 ];
+                    ChoSumSpec = sum(AllFramesFT(lb_cho:ub_cho,:),2);
+                    %subplot(3,1,1)
+                    %plot(freqrange_cho,real(ChoSumSpec), freqrange_cho,LorentzModel(Cho_initx,freqrange_cho))
+                    %subplot(3,1,2)
+                    %plot(MRS_struct.freq, -sum(AllFramesFT(:,:),2), MRS_struct.freq(lb_cho:ub_cho), -sum(AllFramesFT(lb_cho:ub_cho,:),2), freqrange_cho,LorentzModel(Cho_initx,freqrange_cho));
+
+                    
+                    ChoSumSpecFit = FitPeaksByFrames_Cho(freqrange_cho, ChoSumSpec, Cho_initx);
+                    %subplot(3,1,3)
+                    conv= [1 1/(2*42.576*3) 1/(42.576*3) (pi/180) 1 1/size(AllFramesFT,2) ];
+                    %Out_oldunits=ChoSumSpecFit.*conv;
+                        %plot(freqrange_cho, ChoSumSpec,'k', freqrange_cho,LorentzModel(Out_oldunits,freqrange_cho),'r',freqrange_cho,LorentzModel(Cho_initx,freqrange_cho),'g');
+                    %stop
+                    ChoFreqShift = ChoSumSpecFit(3);
+                    ChoFreqShift = ChoFreqShift - 3.2*LarmorFreq; %in Hz
+                    MeanChoFreqShift_ppm = mean(ChoFreqShift/LarmorFreq);
+                    
+                    ChoFreqShift = ChoFreqShift ./ (3*42.58*(MRS_struct.freq(2) - MRS_struct.freq(1) ));
+                    ChoFreqShift_points = round(ChoFreqShift);
+                    size(AllFramesFT);
+                    for jj=1:(size(AllFramesFT,2)*size(AllFramesFT,3))
+                        AllFramesFTrealign(:,jj)=circshift(AllFramesFT(:,jj), -ChoFreqShift_points);
+                    end
+                    for jj=1:(size(AllFramesFT,2)*size(AllFramesFT,3)/2)
+                        EvenFramesFTrealign(:,jj)=circshift(EvenFramesFT(:,jj), -ChoFreqShift_points);
+                        OddFramesFTrealign(:,jj)=circshift(OddFramesFT(:,jj), -ChoFreqShift_points);
+                    end
+
+                    AllFramesFTrealign=AllFramesFTrealign*exp(1i*pi/180*ChoSumSpecFit(4));
+                        OddFramesFTrealign=OddFramesFTrealign*exp(1i*pi/180*ChoSumSpecFit(4));
+                        EvenFramesFTrealign=EvenFramesFTrealign*exp(1i*pi/180*ChoSumSpecFit(4));
+
+                        conv = [1 1/(2*42.576*3) 1/(42.576*3) (pi/180) 1 1/size(AllFramesFT,2) ];
+                        Cho_initx = ChoSumSpecFit.*conv
+
+
+             %Still need ranges for CREATINE!!!! align plot
+                    z=abs(MRS_struct.freq-3.12);
+                    lb=find(min(z)==z);
+                    z=abs(MRS_struct.freq-2.72);
+                    ub=find(min(z)==z);
+                    MRS_struct.fwhmHz(ii)=1/0;
+
+                    %For now just align Cr of the sum to 3.03 ppm...
+                    freqrange = MRS_struct.freq(lb:ub);
+                    Cr_initx = [ 30 0.1 3.02 0 0 0 ];
+                    CrSumSpec = sum(AllFramesFT(lb:ub,:),2);
+                    CrSumSpecFit = FitPeaksByFrames(freqrange, CrSumSpec, Cr_initx);
+                    CrFreqShift = CrSumSpecFit(3);
+                    CrFreqShift = CrFreqShift - 3.2*LarmorFreq;
+                    CrFreqShift = CrFreqShift ./ (3*42.58*(MRS_struct.freq(2) - MRS_struct.freq(1) ));
+                    CrFreqShift_points = round(CrFreqShift);
+                    size(AllFramesFT);
+
+                    Cr_initx = CrSumSpecFit;
+
+                    MRS_struct.Cr_area(ii) = Cr_initx(1);
+                    MRS_struct.Cr_freq(ii) = Cr_initx(3);
+                    MRS_struct.fwhmHz(ii) = Cr_initx(2)
+                
+            if(FreqPhaseAlign)
+
+                %need to rescale area for 1 frame bit messy -
+                % convert back to  ppm, rads for new initialiser
+                % CJE 120118 - correct linear baseline too. without this
+                % the linear component can dominate
+                conv = [1 1/(2*42.576*3) 1/(42.576*3) (pi/180) 1 1/size(AllFramesFT,2) ];
+
+                %Cho_initx = Cho_initx .* conv;
+
+                % Water peak freq shift estimation
+                % find peak location for frequency realignment
+                if Water_Positive ==1
+                    [FrameMax, FrameMaxPos] = max(real(AllFramesFT), [], 1);
+                else
+                    [FrameMax, FrameMaxPos] = min(AllFramesFT, [], 1);
+                end
+                % align all peaks to _first_ transient (should be closest value set during Prescan)
+                FrameShift = FrameMaxPos - FrameMaxPos(1);
+
+                % 110715. only fit the OFF frames
+                %Cr_frames = AllFramesFT(lb:ub,:);
+                
+                
+                               
+                %For .data files we are going to correct everyt transient
+                %based on Cho
+                Cho_frames_all = AllFramesFTrealign(lb_cho:ub_cho,1:end);
+
+                % 110715 - only fit OFF frames
+                [ChoFitParams, rejectframes] = FitPeaksByFrames_Cho(freqrange_cho, Cho_frames_all, Cho_initx);
+                %    [CrFitParams, rejectframes] = FitPeaksByFrames(freqrange, AllFramesFT(lb:ub,:), Cr_initx);
+                ChoFreqShift = ChoFitParams(:,3);
+                ChoFreqShift = ChoFreqShift - 3.2*LarmorFreq;
+                ChoFreqShift = ChoFreqShift ./ (3*42.58*(MRS_struct.freq(2) - MRS_struct.freq(1) ));
+                ChoFreqShift_points = round(ChoFreqShift);
+
+                %110715 CJE
+                % ON spectra are much more variable in baseline - use only OFFs for
+                % freq and phase correction
+                %ChoFreqShift_avg = repmat(ChoFreqShift', [2 1]);
+                %figure(5); plot(CrFreqShift_avg','o-');
+                ChoPhaseShift = ChoFitParams(:,4);
+                MRS_struct.phase(ii)= mean(ChoPhaseShift);
+                %ChoPhaseShift = repmat(ChoPhaseShift, [2 1 ]);
+                ChoPhaseShift = reshape(ChoPhaseShift, [ (numel(ChoPhaseShift)) 1 ]);
+
+                for jj=1:totalframes
+                    %AllFramesFTrealign(:,jj)=AllFramesFTrealign(:,jj) * exp(1i * -ChoPhaseShift(jj) * pi /180);
+                    %AllFramesFTrealign(:,jj)=circshift(AllFramesFTrealign(:,jj), -ChoFreqShift_points(jj)); %Cr peak realignment
+                    %	 AllFramesFTrealign(:,jj)=circshift(AllFramesFT(:,jj), -CrFreqShift_points(jj)); %Cr peak realignment
+                    	 AllFramesFTrealign(:,jj)=circshift(AllFramesFT(:,jj), -FrameShift(jj)); %Water peak realignment
+                         %AllFramesFTrealign(:,jj)=circshift(AllFramesFT(:,jj), 0); %No peak realignment
+                end
+
+                % Need to recalculate these from the f, phase corrected versions...
+                
+                AllFramesFTrealign=reshape(AllFramesFTrealign,[size(AllFramesFTrealign,1) MRS_struct.Navg(ii) MRS_struct.nrows]);
+                OddFramesFTrealign=reshape(AllFramesFTrealign(:,:,1:2:end),[size(AllFramesFTrealign,1) MRS_struct.Navg(ii)*MRS_struct.nrows/2]);
+                EvenFramesFTrealign=reshape(AllFramesFTrealign(:,:,2:2:end),[size(AllFramesFTrealign,1) MRS_struct.Navg(ii)*MRS_struct.nrows/2]);
+                AllFramesFTrealign=reshape(AllFramesFTrealign,[size(AllFramesFTrealign,1) MRS_struct.Navg(ii)*MRS_struct.nrows]);
+
+                % CJE 110303: OutlierReject
+                % reject based on water fit (not Cr)
+                %	 frequpper = mean(MRS_struct.waterfreq(ii,:)) + 3*std(MRS_struct.waterfreq(ii,:));
+                %	 freqlower = mean(MRS_struct.waterfreq(ii,:)) - 3*std(MRS_struct.waterfreq(ii,:));
+                %	 size(MRS_struct.waterfreq(ii,:))
+                %	 frequpper = repmat(frequpper, [1 totalframes]);
+                %	 freqlower = repmat(freqlower, [1 totalframes]);
+
+                % CJE branch on 120126, merge with master 120209
+                % Add condition to discard points after jump in
+                % water freq > 0.01ppm
+                %RAEE - make this GE specific for now... both because short
+                %phase cycle and because WS is 'bad'...
+                if(strcmpi(MRS_struct.vendor,'GE'))
+                    waterreject = [ 0 (abs(diff(MRS_struct.waterfreq(ii,:)))>0.01) ]
+                    %waterreject checks ALL frames
+                    waterreject = reshape(waterreject, [2 numel(waterreject)/2])
+                    waterreject = max(waterreject);
+
+                    rejectframes = rejectframes + waterreject';
+                end
+                %prevent double counting
+                rejectframes = (rejectframes>0);
+
+                lastreject = -1;
+                numreject=0;
+                %    for jj=1:totalframes
+                %      if rejectframes(jj)
+                % work out the ON_OFF pair to reject
+                % set to zero - will come out in the wash after SUM, DIFF
+                %	pairnumber = round(jj/2);
+                %	if(pairnumber ~= lastreject) %trap condition where ON and OFF in a pair are rejected
+                %	  OddFramesFTrealign(1:end, pairnumber) = 0;
+                %	  EvenFramesFTrealign(1:end, pairnumber) = 0;
+                %	       AllFramesFTrealign(1:end, (2*pairnumber-1):(2*pairnumber)) = 0;
+                %	  lastreject = pairnumber;
+                %	  numreject = numreject + 2;
+                %	end
+                %      end
+                %    end
+
+                % 110715 New reject - only fit OFF (second frame in 'pair')
+                for pairnumber=1:(totalframes/2)
+                    if rejectframes(pairnumber)
+                        OddFramesFTrealign(1:end, pairnumber) = 0;
+                        EvenFramesFTrealign(1:end, pairnumber) = 0;
+                        AllFramesFTrealign(:,(2*pairnumber)) =  EvenFramesFTrealign(1:end, pairnumber);
+                    end
+                end
+                if(strcmpi(MRS_struct.vendor,'GE'))
+                  numreject = 2 * 2 * sum(rejectframes); % ON and OFF get rejected and TWO phase cycles.
+                else
+                  numreject = 2 * sum(rejectframes); % ON and OFF get rejected.
+                end 
+                %not keen on this phase cycles=2 hard code. Added GE IF
+
+                for jj=1:(totalframes/2)
+                    AllFramesFTrealign(:,(2*jj-1)) = OddFramesFTrealign(1:end, jj);
+                end
+                if(strcmpi(MRS_struct.vendor,'Philips_data'))
+                    MRS_struct.Navg(ii) = MRS_struct.Navg(ii)*MRS_struct.nrows - numreject*MRS_struct.nrows; %need to check up on both Philips RE 121214
+                elseif(strcmpi(MRS_struct.vendor,'Philips'))
+                    MRS_struct.Navg(ii) = MRS_struct.Navg(ii) - numreject*MRS_struct.Navg(ii)/MRS_struct.nrows; %need to check up on both Philips RE 121214
+                else
+                    MRS_struct.Navg(ii) = MRS_struct.Navg(ii) - numreject;
+                end
+            else
+                % no realignment
+                AllFramesFTrealign=AllFramesFT;
+                OddFramesFTrealign=AllFramesFT(:,1:2:end);
+                EvenFramesFTrealign=AllFramesFT(:,2:2:end);
+                numreject = -1;
             end
-            for jj=1:(size(AllFramesFT,2)*size(AllFramesFT,3)/2)
-                EvenFramesFTrealign(:,jj)=circshift(EvenFramesFT(:,jj), -CrFreqShift_points);
-                OddFramesFTrealign(:,jj)=circshift(OddFramesFT(:,jj), -CrFreqShift_points);
-            end
-            
-            AllFramesFTrealign=AllFramesFTrealign*exp(1i*pi/180*CrSumSpecFit(4));
-                OddFramesFTrealign=OddFramesFTrealign*exp(1i*pi/180*CrSumSpecFit(4));
-                EvenFramesFTrealign=EvenFramesFTrealign*exp(1i*pi/180*CrSumSpecFit(4));
                 
         else
             % Do Creatine sum fit in all cases
@@ -494,7 +682,7 @@ for ii=1:numpfiles
             %Come up with better initial conditions by fitting to the Cr sum
             %For Philipps data, initial hase may be way off - need to fix
             %phase before fixing anything else
-            CrSumSpec = sum(AllFramesFT(:,:),2);
+            CrSumSpec = sum(AllFramesFTrealign(:,:),2);
             if(strcmpi(MRS_struct.vendor,'Philips'))
                 %Assume frequency is roughly right - filter just the Cr/Cho
                 %part and look for maximum...apply phase to data.
@@ -502,23 +690,6 @@ for ii=1:numpfiles
                 Phase_test_data=sum(MRS_struct.data,2);
                 Phase_test_data=WaterFilter(Phase_test_data,50,MRS_struct.sw);
                 Phase_test_data=fftshift(fft(Phase_test_data-FatFilter(Phase_test_data,120,MRS_struct.sw,220),ZeroFillTo));
-%                 size(Phase_test_data)
-%                 plot(real(Phase_test_data))
-%                 stop here
-%                 z2=abs(MRS_struct.freq-3.12);
-%                 lb2=find(min(z2)==z2)
-%                 z2=abs(MRS_struct.freq-2.92);
-%                 ub2=find(min(z2)==z2)
-%                 range=lb2:ub2;
-%                 range_middle=size(range,2)/2.0;
-%                 %find max in spectrum in that range
-%                 [number index]=max(real(CrSumSpec(range)));
-%                 range=range+round(index-range_middle);
-%                 CrSumSpec=ifft(fftshift(CrSumSpec));
-%                 CrSumSpec = WaterFilter(CrSumSpec,50,MRS_struct.sw);
-%                 CrSumSpec = FatFilter(CrSumSpec,50,MRS_struct.sw);
-%                 CrSumSpec=fftshift(fft(CrSumSpec));
-%                 figure(12)
                 range=1:ZeroFillTo;
                 [CrSumSpec phase] = FixCrPhase(Phase_test_data,range);
             else
@@ -526,12 +697,11 @@ for ii=1:numpfiles
             end
             phase;
             %CrSumSpec = CrSumSpec(lb:ub);
-            CrSumSpec = sum(AllFramesFT(lb:ub,:),2)*exp(1i*pi/180*(phase));
-            %plot(MRS_struct.freq(lb:ub),real(CrSumSpec));
+            CrSumSpec = sum(AllFramesFTrealign(lb:ub,:),2)*exp(1i*pi/180*(phase));
             CrSumSpecFit = FitPeaksByFrames(freqrange, CrSumSpec, Cr_initx);
-            %Apply phase to AllFrameFT
-            CrSumSpecFit(4);
+            %Apply phase to AllFrameFT and AllFramesFTrealign
             AllFramesFT=AllFramesFT*exp(1i*pi/180*(CrSumSpecFit(4)+phase));
+            AllFramesFTrealign=AllFramesFTrealign*exp(1i*pi/180*(CrSumSpecFit(4)+phase));
 %             figure(12);
 %             plot(MRS_struct.freq,real(sum(AllFramesFT,2)));
 %             %size(CrSumSpec)
@@ -569,7 +739,7 @@ for ii=1:numpfiles
 
                 % 110715. only fit the OFF frames
                 %Cr_frames = AllFramesFT(lb:ub,:);
-                Cr_frames_OFF = AllFramesFT(lb:ub,2:2:end);
+                Cr_frames_OFF = AllFramesFTrealign(lb:ub,2:2:end);
 
                 % 110715 - only fit OFF frames
                 [CrFitParams, rejectframes] = FitPeaksByFrames(freqrange, Cr_frames_OFF, Cr_initx);
@@ -579,13 +749,6 @@ for ii=1:numpfiles
                 CrFreqShift = CrFreqShift ./ (3*42.58*(MRS_struct.freq(2) - MRS_struct.freq(1) ));
                 CrFreqShift_points = round(CrFreqShift);
 
-                % average over ON and OFF spectra - otherwise there is a net freq shift of ON relative to
-                %  Off, causing a subtraction error 110310 CJE
-                %CrFreqShift_avg = reshape(CrFreqShift, [2 (numel(CrFreqShift)/2) ]);
-                %CrFreqShift_avg = mean(CrFreqShift_avg, 1);
-                %CrFreqShift_avg = repmat(CrFreqShift_avg, [2 1]);
-                %CrFreqShift_avg = round(reshape(CrFreqShift_avg, [ (numel(CrFreqShift_avg)) 1 ]));
-                %CrPhaseShift = CrFitParams(:,4);
                 %110715 CJE
                 % ON spectra are much more variable in baseline - use only OFFs for
                 % freq and phase correction
@@ -600,8 +763,8 @@ for ii=1:numpfiles
                 size(CrFreqShift_avg);
 
                 for jj=1:totalframes
-                    AllFramesFTrealign(:,jj)=AllFramesFT(:,jj) * exp(1i * -CrPhaseShift(jj) * pi /180);
-                    AllFramesFTrealign(:,jj)=circshift(AllFramesFT(:,jj), -CrFreqShift_avg(jj)); %Cr peak realignment
+                    AllFramesFTrealign(:,jj)=AllFramesFTrealign(:,jj) * exp(1i * -CrPhaseShift(jj) * pi /180);
+                    AllFramesFTrealign(:,jj)=circshift(AllFramesFTrealign(:,jj), -CrFreqShift_avg(jj)); %Cr peak realignment
                     %	 AllFramesFTrealign(:,jj)=circshift(AllFramesFT(:,jj), -CrFreqShift_points(jj)); %Cr peak realignment
                     %	 AllFramesFTrealign(:,jj)=circshift(AllFramesFT(:,jj), -FrameShift(jj)); %Water peak realignment
                 end
@@ -756,12 +919,21 @@ for ii=1:numpfiles
         
         subplot(2,2,3)
         if(FreqPhaseAlign)
-            %    plotrealign=[ real(AllFramesFT((lb+50):(ub-150),:)) ;
-            %		  real(AllFramesFTrealign((lb+50):(ub-150),:)) ];
-            plotrealign=[ real(AllFramesFT((lb):(ub),:)) ;
-                real(AllFramesFTrealign((lb):(ub),:)) ];
-            imagesc(plotrealign);
-            title('Cr Frequency, pre and post align');
+            if(AlignTo==2)
+                %    plotrealign=[ real(AllFramesFT((lb+50):(ub-150),:)) ;
+                %		  real(AllFramesFTrealign((lb+50):(ub-150),:)) ];
+                plotrealign=[ real(AllFramesFT((lb):(ub),:)) ;
+                    real(AllFramesFTrealign((lb):(ub),:)) ];
+                imagesc(plotrealign);
+                title('Cr Frequency, pre and post align');
+            else
+                     %    plotrealign=[ real(AllFramesFT((lb+50):(ub-150),:)) ;
+                %		  real(AllFramesFTrealign((lb+50):(ub-150),:)) ];
+                plotrealign=[ real(AllFramesFT((lb_cho):(ub_cho),:)) ;
+                    real(AllFramesFTrealign((lb_cho):(ub_cho),:)) ];
+                imagesc(plotrealign);
+                title('Cho Frequency, pre and post align');
+            end
         else
             tmp = 'No realignment';
             text(0,0.9, tmp, 'FontName', 'Courier');
