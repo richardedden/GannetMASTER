@@ -47,7 +47,7 @@ freq=MRS_struct.freq;
 if strcmp(MRS_struct.Reference_compound,'H2O')
     WaterData=MRS_struct.waterspec;
 end
-MRS_struct.versionfit = '120829';
+MRS_struct.versionfit = '121203';
 disp(['GABA Fit Version is ' MRS_struct.versionfit ]);
 fitwater=1;
 numscans=size(GABAData);
@@ -124,12 +124,22 @@ for ii=1:numscans
     nlinopts = statset('nlinfit');
     nlinopts = statset(nlinopts, 'MaxIter', 1e5);
 
+    size(GaussModelInit)
+    size(freq(freqbounds))
+    size(real(GABAData(ii,freqbounds)))
+    size(GaussModel_area(GaussModelInit,freq(freqbounds)))
+    ii
 
-    [GaussModelParam(ii,:),resnorm(ii), residg] = lsqcurvefit(@(xdummy,ydummy) GaussModel_area(xdummy,ydummy), ...
+     [GaussModelParam(ii,:),resnorm,residg] = lsqcurvefit(@(xdummy,ydummy) GaussModel_area(xdummy,ydummy), ...
         GaussModelInit, ...
         freq(freqbounds),...
         real(GABAData(ii,freqbounds)), ...
         lb,ub,options);
+%     [GaussModelParam(ii,:),resnorm(ii,:), residg] = lsqcurvefit(@(xdummy,ydummy) GaussModel_area(xdummy,ydummy), ...
+%         GaussModelInit, ...
+%         freq(freqbounds),...
+%         real(GABAData(ii,freqbounds)), ...
+%         lb,ub,options);
     residg = -residg;
 
     if(fit_method == FIT_NLINFIT)
