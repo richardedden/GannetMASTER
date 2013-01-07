@@ -481,12 +481,14 @@ for ii=1:numpfiles
             % Do Creatine sum fit in all cases
             %110825  Need tosearch for pm values rather than simply use indices
             %since SW and npoints may change...
-            z=abs(MRS_struct.freq-3.12);
+            CrFitLimLow=2.72;
+            CrFitLimHigh=3.12;
+            z=abs(MRS_struct.freq-CrFitLimHigh);
             lb=find(min(z)==z);
-            z=abs(MRS_struct.freq-2.72);
+            z=abs(MRS_struct.freq-CrFitLimLow);
             ub=find(min(z)==z);
             %lb = 17651; ub=18000;
-
+            CrFitRange=ub-lb;
             MRS_struct.freq(17651);
             MRS_struct.freq(18000);
             freqrange = MRS_struct.freq(lb:ub);
@@ -538,7 +540,8 @@ for ii=1:numpfiles
             CrSumSpec = sum(AllFramesFT(lb:ub,:),2)*exp(1i*pi/180*(phase));
             %plot(MRS_struct.freq(lb:ub),real(CrSumSpec));
             CrSumSpecFit = FitPeaksByFrames(freqrange, CrSumSpec, Cr_initx);
-            %Apply phase to AllFrameFT
+
+                        %Apply phase to AllFrameFT
             CrSumSpecFit(4);
             AllFramesFT=AllFramesFT*exp(1i*pi/180*(CrSumSpecFit(4)+phase));
 %             figure(12);
@@ -587,7 +590,7 @@ for ii=1:numpfiles
                 CrFreqShift = CrFreqShift - 3.03*LarmorFreq;
                 CrFreqShift = CrFreqShift ./ (3*42.58*(MRS_struct.freq(2) - MRS_struct.freq(1) ));
                 CrFreqShift_points = round(CrFreqShift);
-
+                MRS_struct.CrFreq(ii,:)=CrFitParams(:,3)';
                 % average over ON and OFF spectra - otherwise there is a net freq shift of ON relative to
                 %  Off, causing a subtraction error 110310 CJE
                 %CrFreqShift_avg = reshape(CrFreqShift, [2 (numel(CrFreqShift)/2) ]);
@@ -773,6 +776,8 @@ for ii=1:numpfiles
                 real(AllFramesFTrealign((lb):(ub),:)) ];
             imagesc(plotrealign);
             title('Cr Frequency, pre and post align');
+            set(gca,'YTick',[1 CrFitRange CrFitRange+CrFitRange*(CrFitLimHigh-3.02)/(CrFitLimHigh-CrFitLimLow) CrFitRange*2]);
+            set(gca,'YTickLabel',[CrFitLimHigh CrFitLimLow 3.02 CrFitLimLow]);
         else
             tmp = 'No realignment';
             text(0,0.9, tmp, 'FontName', 'Courier');
