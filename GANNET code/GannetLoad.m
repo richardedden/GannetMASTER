@@ -407,7 +407,8 @@ for ii=1:numpfiles
         
         if(strcmpi(MRS_struct.vendor,'Philips_data'))     
            for jj=1:totalframes
-         	 AllFramesFTrealign(:,jj)=circshift(AllFramesFT(:,jj), -FrameShift(jj));
+              AllFramesFTrealign(:,jj)=circshift(AllFramesFT(:,jj), -FrameShift(jj));
+             %This is being done, but the SumSpec stuff (462) rewrites realign, ignoring this bit... 
            end
         elseif (strcmpi(MRS_struct.vendor,'Philips'))
             for jj=1:totalframes
@@ -424,10 +425,10 @@ for ii=1:numpfiles
         if(strcmpi(MRS_struct.vendor,'Philips_data'))
             AllFramesFTrealign=reshape(AllFramesFTrealign,[size(AllFramesFTrealign,1) MRS_struct.Navg(ii) MRS_struct.nrows]);
             AllFramesFT=reshape(AllFramesFT,[size(AllFramesFT,1) MRS_struct.Navg(ii) MRS_struct.nrows]);
-            OddFramesFTrealign=AllFramesFTrealign(:,:,1:2:end);
-            EvenFramesFTrealign=AllFramesFTrealign(:,:,2:2:end);
-            OddFramesFT=AllFramesFT(:,:,1:2:end);
-            EvenFramesFT=AllFramesFT(:,:,2:2:end);
+            OddFramesFTrealign=AllFramesFTrealign(:,:,2:2:end);
+            EvenFramesFTrealign=AllFramesFTrealign(:,:,1:2:end);
+            OddFramesFT=AllFramesFT(:,:,2:2:end);
+            EvenFramesFT=AllFramesFT(:,:,1:2:end);
             OddFramesFTrealign=reshape(OddFramesFTrealign,[size(OddFramesFTrealign,1) size(OddFramesFTrealign,2)*size(OddFramesFTrealign,3) ]);
             EvenFramesFTrealign=reshape(EvenFramesFTrealign,[size(EvenFramesFTrealign,1) size(EvenFramesFTrealign,2)*size(EvenFramesFTrealign,3) ]);
             OddFramesFT=reshape(OddFramesFT,[size(OddFramesFT,1) size(OddFramesFT,2)*size(OddFramesFT,3) ]);
@@ -446,19 +447,21 @@ for ii=1:numpfiles
             %Creatine align is an issue... if we align all spectra to
             %creatine, we introduce a subtraction error.  If we try to
             %apply the pairwise approach used for GE, this fails as Philips
-            %data acquired in phase cycle blocks of 16.
-            
+            %data acquired in phase cycle blocks of 16.           
+            CrFitLimLow=2.72;
+            CrFitLimHigh=3.12;           
+            %lb = 17651; ub=18000;           
             %Still need ranges for Creatine align plot
-            z=abs(MRS_struct.freq-3.12);
+            z=abs(MRS_struct.freq-CrFitLimHigh);
             lb=find(min(z)==z);
-            z=abs(MRS_struct.freq-2.72);
+            z=abs(MRS_struct.freq-CrFitLimLow);
             ub=find(min(z)==z);
             MRS_struct.fwhmHz(ii)=1/0;
-            
+            CrFitRange=ub-lb;            
             %For now just align Cr of the sum to 3.03 ppm...
             freqrange = MRS_struct.freq(lb:ub);
             Cr_initx = [ 30 0.1 3.0 0 0 0 ];
-            CrSumSpec = sum(AllFramesFT(lb:ub,:),2);
+            CrSumSpec = sum(AllFramesFTrealign(lb:ub,:),2);
             CrSumSpecFit = FitPeaksByFrames(freqrange, CrSumSpec, Cr_initx);
             CrFreqShift = CrSumSpecFit(3);
             CrFreqShift = CrFreqShift - 3.03*LarmorFreq;
@@ -466,11 +469,11 @@ for ii=1:numpfiles
             CrFreqShift_points = round(CrFreqShift);
             size(AllFramesFT);
             for jj=1:(size(AllFramesFT,2)*size(AllFramesFT,3))
-                AllFramesFTrealign(:,jj)=circshift(AllFramesFT(:,jj), -CrFreqShift_points);
+                AllFramesFTrealign(:,jj)=circshift(AllFramesFTrealign(:,jj), -CrFreqShift_points);
             end
             for jj=1:(size(AllFramesFT,2)*size(AllFramesFT,3)/2)
-                EvenFramesFTrealign(:,jj)=circshift(EvenFramesFT(:,jj), -CrFreqShift_points);
-                OddFramesFTrealign(:,jj)=circshift(OddFramesFT(:,jj), -CrFreqShift_points);
+                EvenFramesFTrealign(:,jj)=circshift(EvenFramesFTrealign(:,jj), -CrFreqShift_points);
+                OddFramesFTrealign(:,jj)=circshift(OddFramesFTrealign(:,jj), -CrFreqShift_points);
             end
             
             AllFramesFTrealign=AllFramesFTrealign*exp(1i*pi/180*CrSumSpecFit(4));
@@ -749,7 +752,9 @@ for ii=1:numpfiles
         
         subplot(2,2,1)
         MRSplotprepostalign(MRS_struct,ii)
-        title('Edited Spectrum');
+        title('Edited GABA Spectrum');
+        set(gca,'YTick',[]);
+        set(gca,'YTickLabel',[]);
         %figure(53)
         subplot(2,2,2)
         if(FreqPhaseAlign)
